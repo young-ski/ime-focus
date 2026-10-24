@@ -22,6 +22,7 @@ dependencies = ["comtypes>=1.4"]
 
 [project.scripts]
 imefocus = "imefocus.cli:main"
+imefocus-gui = "imefocus.gui:main"
 
 [project.urls]
 Homepage = "https://github.com/young-ski/ime-focus"

@@ -9,15 +9,12 @@ import time
 from pathlib import Path
 
 from . import __version__, config, rules, win
+from . import engine as engine_mod
 
 
 def _setup_console() -> None:
     with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
-
-
-def _stamp() -> str:
-    return time.strftime("%H:%M:%S")
 
 
 def cmd_doctor() -> int:
@@ -46,8 +43,7 @@ def cmd_doctor() -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    cfg_path = args.config
-    loaded, interval = config.load(cfg_path)
+    loaded, interval = config.load(args.config)
     loaded = rules.Rules(
         enabled=loaded.enabled and not args.no_config,
         only_in=loaded.only_in,
@@ -57,53 +53,21 @@ def cmd_run(args: argparse.Namespace) -> int:
           f"{'  [dry-run]' if args.dry_run else ''}")
     print("Ctrl+C 退出\n")
 
-    state = rules.IDLE
-    restore_hkl = 0
-    last_key: tuple[str, bool] | None = None
-
-    def restore() -> None:
-        if state == rules.EN and restore_hkl:
-            hwnd = win.user32.GetForegroundWindow()
-            if hwnd:
-                win.user32.PostMessageW(
-                    hwnd, win.WM_INPUTLANGCHANGEREQUEST, 0, restore_hkl
-                )
-
+    engine = engine_mod.Engine(
+        loaded,
+        dry_run=args.dry_run,
+        emit_noop=args.verbose,
+        on_event=lambda ev: print(ev.line(), flush=True),
+    )
     try:
         while True:
-            info = win.focused()
-            decision = rules.decide(info, state, loaded)
-            key = (info.process, info.is_password)
-
-            if decision.action is not rules.Action.NOOP:
-                if decision.action is rules.Action.TO_EN:
-                    if not args.dry_run:
-                        restore_hkl = win.current_layout(info.hwnd) or restore_hkl
-                        if not win.activate_layout(info.hwnd, win.EN_US_KLID):
-                            print("  美式键盘不可用，跳过（跑 imefocus doctor）")
-                            time.sleep(interval / 1000)
-                            continue
-                    state = rules.EN
-                else:
-                    if not args.dry_run:
-                        restore_hkl and win.user32.PostMessageW(
-                            info.hwnd, win.WM_INPUTLANGCHANGEREQUEST, 0, restore_hkl
-                        )
-                    state = rules.IDLE
-
-                print(f"[{_stamp()}] {info.process or '?'}  {info.class_name or '-'}"
-                      f"  -> {decision.action.value}  ({decision.reason})")
-            elif args.verbose and key != last_key:
-                print(f"[{_stamp()}] {info.process or '?'}  {info.class_name or '-'}"
-                      f"  -> noop  ({decision.reason})")
-
-            last_key = key
+            engine.tick()
             time.sleep(interval / 1000)
     except KeyboardInterrupt:
         print("\n退出中…")
-        if state == rules.EN:
-            restore()
-        return 0
+    finally:
+        engine.stop()
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -120,7 +84,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor = sub.add_parser("doctor", help="环境自检")
     doctor.set_defaults(func=lambda _a: cmd_doctor())
+
+    gui = sub.add_parser("gui", help="打开图形界面（托盘 + 设置窗口）")
+    gui.add_argument("--config", type=Path, default=None, help="配置文件路径")
+    gui.set_defaults(func=cmd_gui)
     return parser
+
+
+def cmd_gui(args: argparse.Namespace) -> int:
+    from . import gui as gui_mod
+
+    return gui_mod.run(args.config)
 
 
 def main(argv: list[str] | None = None) -> int:
