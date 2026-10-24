@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ime-focus"
+version = "0.1.0"
+description = "Windows 焦点守卫：焦点进入密码框时自动切英文键盘，离开后恢复"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "young-ski" }]
+keywords = ["windows", "ime", "keyboard-layout", "password", "uiautomation"]
+classifiers = [
+  "Environment :: Win32 (MS Windows)",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Topic :: Utilities",
+]
+dependencies = ["comtypes>=1.4"]
+
+[project.scripts]
+imefocus = "imefocus.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/young-ski/ime-focus"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/imefocus"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "BLE"]
+# 胶水层要吞掉 COM 的各种异常，宽捕获是有意的；
+# RUF001-003 是中文全角标点，对中文项目是误报
+ignore = ["BLE001", "RUF001", "RUF002", "RUF003"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,6 @@
+enabled = true
+interval_ms = 120
+# 只在以下进程里生效，留空表示全部程序
+only_in = []
+# 永不介入（密码管理器自己会处理输入法）
+ignore = ["keepass.exe", "bitwarden.exe", "1password.exe"]
