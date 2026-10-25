@@ -8,3 +8,5 @@ dist/
 .pytest_cache/
 .ruff_cache/
 *.log
+# dev 脚手架的产物
+dev/out/
